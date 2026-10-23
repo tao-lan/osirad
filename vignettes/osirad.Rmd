@@ -1,0 +1,125 @@
+---
+title: "From 'OsiriX' ROIs to PET voxels and radiomics features"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{From 'OsiriX' ROIs to PET voxels and radiomics features}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+has_python = nzchar(Sys.getenv("OSIRAD_PYTHON"))
+```
+
+## Overview
+
+Regions of interest (ROIs) drawn slice by slice in the 'OsiriX' DICOM viewer
+can be exported as an XML file. For each ROI on each slice, the file stores
+the polygon corner points, the value of every voxel inside the ROI and
+summary statistics, but not the voxel positions. **osirad** finds the voxel
+positions:
+
+1. `read_osirix_rois()` reads the XML file.
+2. `suv_factor_from_header()` and `read_pet_slice()` read the PET DICOM
+   slices and convert them to standardised uptake values (SUV).
+3. `match_roi_voxels()` finds, near the ROI corner points, the pixels whose
+   SUV equals the voxel values in the XML file.
+4. `extract_roi_voxels()` runs steps 1 to 3 for all ROIs and returns one
+   table with the position (pixels and mm) and the SUV of every ROI voxel.
+5. `pyradiomics_features()` sends the PET series and the ROI voxels to the
+   'Python' library 'PyRadiomics' to compute radiomics features.
+
+## Export the ROIs from 'OsiriX'
+
+1. Draw the ROIs slice by slice on the original PET series (closed polygon
+   or another ROI tool).
+2. Export the ROIs: *Plugins > ROI Tools > Export ROIs*, XML format.
+3. Export the PET series as DICOM files (*File > Export > Current image
+   only*, not the fused PET/CT). Keep the files of this series, and only
+   these, in one folder.
+
+## Example data
+
+The package contains a small synthetic PET phantom (32 x 32 pixels, 8
+slices) with two ROIs, "Tumour" and "Node", exported in the 'OsiriX' XML
+format.
+
+```{r}
+library(osirad)
+xml_file = system.file("extdata", "phantom", "ROI.xml", package = "osirad")
+pet_dir = system.file("extdata", "phantom", "pet", package = "osirad")
+```
+
+## ROI voxels
+
+```{r}
+x = extract_roi_voxels(xml_file, pet_dir)
+x
+head(x$voxels)
+```
+
+The printed report shows how each XML value was matched to a pixel:
+
+* **clear match**: the value is found at exactly as many pixels as 'OsiriX'
+  lists it.
+* **listed twice**: 'OsiriX' lists the same pixel more than once.
+* **tie by neighbours / by distance**: the same SUV is found at more pixels
+  than listed; the pixels touching the most other ROI voxels (then the ones
+  nearest the ROI centre) are kept.
+* **not found**: no pixel has this value. This happens when `pet_dir` is not
+  the series the ROIs were drawn on; `extract_roi_voxels()` then gives a
+  warning.
+
+The match per ROI is in `x$match`:
+
+```{r}
+x$match
+```
+
+Check the voxels on the images:
+
+```{r, fig.width = 6, fig.height = 6}
+plot_roi_slices(x, image_index = 2:5)
+```
+
+Save the voxel table for other software:
+
+```{r, eval = FALSE}
+write.csv(x$voxels, "roi_voxels.csv", row.names = FALSE)
+```
+
+## Radiomics features with 'PyRadiomics'
+
+`pyradiomics_features()` needs 'Python' with the modules `pyradiomics`,
+`SimpleITK` and `numpy`, and the R package 'reticulate'. One way to set up
+'Python' with 'conda' (in a terminal):
+
+```
+conda create -n radiomics python=3.9 "numpy<2"
+conda activate radiomics
+pip install pyradiomics
+```
+
+On computers where `pip install pyradiomics` fails (for example Apple
+silicon), install it from the source code:
+
+```
+pip install versioneer "setuptools<70"
+pip install --no-build-isolation git+https://github.com/AIM-Harvard/pyradiomics.git@v3.1.0
+```
+
+Then give the path of this 'Python' to `pyradiomics_features()`
+(`conda activate radiomics; which python` shows it). The default settings are a
+fixed bin width of 0.25 SUV, no intensity normalisation and no resampling;
+all ROIs form one mask.
+
+```{r, eval = has_python}
+rad = pyradiomics_features(x, pet_dir, python = Sys.getenv("OSIRAD_PYTHON"))
+head(rad$features)
+rad$check
+```
+
+`rad$check` compares the 'Python' mask with the R voxels: the number of
+voxels, the largest distance between a voxel and its slice, and the largest
+SUV difference between 'Python' and R.
