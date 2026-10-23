@@ -7,6 +7,7 @@
 ## Test environments
 
 * local macOS (aarch64), R 4.5.2
+* GitHub Actions: macOS (release), Windows (release), Ubuntu (devel, release, oldrel-1)
 * win-builder (R-devel)  -- to be run
 * macOS builder (R-release) -- to be run
 
