@@ -1,5 +1,9 @@
 # osirad
 
+  <!-- badges: start -->
+  [![R-CMD-check](https://github.com/tao-lan/osirad/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/tao-lan/osirad/actions/workflows/R-CMD-check.yaml)
+  <!-- badges: end -->
+
 **osirad** finds the exact voxels of regions of interest (ROIs) drawn in the
 'OsiriX' DICOM viewer on PET images, and passes them to 'PyRadiomics' for
 radiomics features.
