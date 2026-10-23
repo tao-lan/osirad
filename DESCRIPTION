@@ -3,7 +3,7 @@ Title: PET Voxels and Radiomics from 'OsiriX' Regions of Interest
 Version: 0.1.0
 Authors@R: c(
     person("Tao", "Lan", email = "lantao32405@gmail.com", role = c("aut", "cre", "cph")),
-    person("Eric", "Wolsztynski", email = "eric.w@ucc.ie", role = "aut")
+    person("Eric", "Wolsztynski", email = "E.Wolsztynski@ucc.ie", role = "aut")
   )
 Description: Reads regions of interest (ROIs) drawn in the 'OsiriX' medical
     image viewer and exported as XML files, and recovers the exact voxels of
